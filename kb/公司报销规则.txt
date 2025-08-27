@@ -1,0 +1,43 @@
+rule_key	category	param	value	desc
+# ==================== 发票合规性校验规则 ====================				
+invoice_status	compliance	status	verified	发票状态必须为'正常'，非'作废'、'红冲'、'失控'或'异常凭证'
+invoice_date	compliance	max_days_before_today	180	开票日期不能早于当前系统日期180天（参考6个月报销周期）
+invoice_company	compliance	name	must_match	发票抬头名称必须与公司全称完全一致
+invoice_tax_id	compliance	id	must_match	发票纳税人识别号必须与公司税号完全一致
+invoice_amount	compliance	check	enabled	发票金额大小写必须一致
+invoice_duplicate	compliance	method	title+amount+date	查重逻辑：同一发票抬头、同一金额、同一开票日期的发票视为重复报销
+e_invoice_duplicate	compliance	method	number	电子发票（含数电票）重复报销校验：以发票号码为准，需关联内部台账
+# ==================== 业务合理性校验规则 ====================				
+dept_budget	business	over_budget_action	review	部门月度/年度费用预算超标时，触发人工审核
+expense_standard	business	std_travel	enabled	差旅费报销需符合内部标准（如城市级别、职级对应的住宿/交通/补助标准）
+expense_standard	business	std_entertain	enabled	业务招待费报销需符合单次及人均标准
+expense_reason	business	reason_required	enabled	报销单必须填写事由，且事由描述需具体（如招待客户需说明客户名称、事由、陪同人员）
+period_limit	business	expense_period	180	费用发生日至报销申请日不得超过180天（6个月）
+# ==================== 税率与金额计算规则 ====================				
+tax_rate	calculation	whitelist	0%;3%;5%;6%;9%;13%	允许的税率白名单（特殊征收率需人工审核:1%;1.5%）
+tax_rate	calculation	check_formula	enabled	价税分离计算校验：不含税金额 = 含税金额 / (1 + 税率)；税额 = 含税金额 - 不含税金额
+amount_diff	calculation	threshold	0.01	金额差容忍度：计算出的税额与发票标注的税额之差绝对值不得超过0.01元
+rounding	calculation	method	half_even	金额计算 rounding 方法：四舍六入五成双（银行家舍入法），避免舍入误差累积
+# ==================== 附件与证据链规则 ====================				
+attachment_required	evidence	type_entertain	invoice+reason_list	业务招待费报销必须上传发票和事由说明（含招待清单）
+attachment_required	evidence	type_travel	invoice+itinerary	差旅费报销必须上传发票和行程单（如机票、车票）
+attachment_required	evidence	type_conference	invoice+agenda+sign_in	会议费报销必须上传发票、会议议程和签到表
+attachment_required	evidence	type_training	invoice+syllabus	培训费报销必须上传发票和课程大纲
+attachment_required	evidence	type_other	invoice	其他费用报销必须上传发票
+# ==================== 风险控制规则 ====================				
+blacklist_vendor	risk_control	action	reject	销售方在黑名单内（如税收违法黑名单）的发票，系统自动拒绝
+grey_list_vendor	risk_control	action	review	销售方在灰名单内（如经营状态异常）的发票，触发人工审核
+abnormal_invoice_pattern	risk_control	action	review	发票开具模式异常（如连号发票、顶额开票），触发人工审核
+abnormal_time	risk_control	action	review	非工作时间（如深夜、节假日）频繁开具的餐饮、娱乐类发票，触发人工审核
+# ==================== 系统与工作流规则 ====================				
+auto_accounting	system	default_tax_code	enabled	自动匹配税金科目（如：应交税费-应交增值税-进项税额）
+auto_approval	system	confidence_threshold	0.85	匹配置信度高于此阈值（0.85）的报销单，可进入自动审批流程
+manual_review	system	confidence_threshold	0.6	匹配置信度低于此阈值（0.60）的报销单，必须转人工审核
+review_reminder	system	days	3	提醒审批人处理待审单据的间隔天数（3天）
+period	system	year	2025	允许报销的会计年度
+dedup	system	method	title+amount+date	重复报销判断逻辑（同invoice_duplicate）
+# ==================== 特殊业务规则 ====================				
+gift_tax	special	withholding	enabled	礼品费报销需触发个税代扣代缴提醒（链接人力系统）
+entertainment_tax	special	no_deduction	enabled	业务招待费进项税额标识为'不可抵扣'
+company_vehicle	special	account	6601	公务用车费用（油费、维修费、过路费等）计入管理费用-办公费
+prepaid_expense	special	account	1301	预付性质的费用（如预付1年房租）应计入预付账款，而非当期费用
